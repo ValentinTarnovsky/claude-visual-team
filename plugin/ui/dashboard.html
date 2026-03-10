@@ -475,7 +475,15 @@
     return events[events.length - 1].timestamp || session.startTime || 0;
   }
 
-  const ACTIVE_WINDOW_MS = 8 * 60 * 60 * 1000; // 8 hours
+  const ACTIVE_WINDOW_MS = 1 * 60 * 60 * 1000; // 1 hour
+
+  // Background/observer projects to hide from the session list
+  const BG_PATTERNS = ['claude-mem-observer'];
+
+  function isBackgroundSession(id) {
+    const proj = state[id].projectPath || '';
+    return BG_PATTERNS.some(p => proj.includes(p));
+  }
 
   function updateSessionSelect() {
     const ids = Object.keys(state);
@@ -484,10 +492,10 @@
 
     const now = Date.now();
 
-    // Only show sessions active within the last 8 hours
+    // Only show user sessions active within the last 1 hour
     const active = ids.filter(id => {
       const last = getLastActivity(state[id]);
-      return (now - last) < ACTIVE_WINDOW_MS;
+      return (now - last) < ACTIVE_WINDOW_MS && !isBackgroundSession(id);
     });
 
     // Sort by last activity (most recent first)
@@ -512,12 +520,12 @@
       sessionSelect.appendChild(opt);
     });
 
-    if (prev && visible.includes(prev)) {
+    if (prev && active.includes(prev)) {
       sessionSelect.value = prev;
       currentSessionId = prev;
     } else {
-      sessionSelect.value = visible[0];
-      currentSessionId = visible[0];
+      sessionSelect.value = active[0];
+      currentSessionId = active[0];
     }
   }
 

@@ -43,9 +43,12 @@ loadSessionTitles();
 // ── Helpers ────────────────────────────────────────────────────────────────
 function sessionIdFromPath(filePath) {
   const norm = filePath.replace(/\\/g, '/');
-  // Pattern: projects/{encoded-project}/{sessionId}/...
+  // Pattern 1: projects/{project}/{sessionId}/...  (subagent files inside session dir)
   const m = norm.match(/projects\/([^/]+)\/([0-9a-f-]{36})\//);
   if (m) return { projectPath: m[1], sessionId: m[2] };
+  // Pattern 2: projects/{project}/{sessionId}.jsonl  (flat session file at project root)
+  const m2 = norm.match(/projects\/([^/]+)\/([0-9a-f-]{36})\.jsonl$/);
+  if (m2) return { projectPath: m2[1], sessionId: m2[2] };
   return null;
 }
 
@@ -284,14 +287,14 @@ function processSubagentJsonl(filePath, entries, fileMtime) {
   }
 }
 
-function processMetaJson(filePath) {
+function processMetaJson(filePath, fileMtime) {
   const info = sessionIdFromPath(filePath);
   const agentFileId = agentIdFromPath(filePath);
   if (!info || !agentFileId) return;
 
   try {
     const meta = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const session = getOrCreateSession(info.sessionId, info.projectPath);
+    const session = getOrCreateSession(info.sessionId, info.projectPath, fileMtime);
 
     // Update agent info from meta
     for (const [, agent] of session.agents) {
@@ -380,15 +383,15 @@ function startWatcher() {
   function handleFile(filePath) {
     const norm = filePath.replace(/\\/g, '/');
 
+    let fileMtime = Date.now();
+    try { fileMtime = fs.statSync(filePath).mtimeMs; } catch (_) {}
+
     if (norm.endsWith('.meta.json')) {
-      processMetaJson(filePath);
+      processMetaJson(filePath, fileMtime);
       return;
     }
 
     if (!norm.endsWith('.jsonl')) return;
-
-    let fileMtime = Date.now();
-    try { fileMtime = fs.statSync(filePath).mtimeMs; } catch (_) {}
 
     const entries = readNewLines(filePath);
     if (entries.length === 0) return;

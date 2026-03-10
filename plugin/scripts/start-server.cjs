@@ -20,11 +20,22 @@ function checkServer() {
   });
 }
 
+function ensureDeps() {
+  const pluginRoot = path.join(__dirname, '..');
+  const nmPath = path.join(pluginRoot, 'node_modules', 'ws');
+  if (!fs.existsSync(nmPath)) {
+    const { execSync } = require('child_process');
+    execSync('npm install --production', { cwd: pluginRoot, stdio: 'ignore', timeout: 30000 });
+  }
+}
+
 async function main() {
   const running = await checkServer();
   if (running) {
     process.exit(0);
   }
+
+  ensureDeps();
 
   // Kill stale process if PID file exists
   try {

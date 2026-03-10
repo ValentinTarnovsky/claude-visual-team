@@ -11,15 +11,34 @@ const WebSocket = require('ws');
 const PORT = parseInt(process.env.VISUAL_TEAM_PORT || '4800', 10);
 const PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
 const DASHBOARD_PATH = path.join(__dirname, '..', 'ui', 'dashboard.html');
+const HISTORY_PATH = path.join(os.homedir(), '.claude', 'history.jsonl');
 
 // ── State ──────────────────────────────────────────────────────────────────
 const sessions = new Map();
 const fileOffsets = new Map();
+const sessionTitles = new Map(); // sessionId -> title from /rename
 let dashboardHtml = '';
 const IS_DEV = process.env.NODE_ENV === 'development';
 const MAX_EVENTS = 1000;
 
 try { dashboardHtml = fs.readFileSync(DASHBOARD_PATH, 'utf8'); } catch (_) {}
+
+// ── Session Titles ─────────────────────────────────────────────────────────
+function loadSessionTitles() {
+  try {
+    const lines = fs.readFileSync(HISTORY_PATH, 'utf8').split('\n').filter(l => l.trim());
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        if (entry.sessionId && entry.display && entry.display.startsWith('/rename ')) {
+          const title = entry.display.slice('/rename '.length).trim();
+          if (title) sessionTitles.set(entry.sessionId, title);
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+loadSessionTitles();
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function sessionIdFromPath(filePath) {
@@ -31,18 +50,20 @@ function sessionIdFromPath(filePath) {
 }
 
 function getOrCreateSession(sessionId, projectPath, fileMtime) {
+  const activityTime = fileMtime || Date.now();
   if (!sessions.has(sessionId)) {
     sessions.set(sessionId, {
       sessionId,
       projectPath: decodeURIComponent(projectPath.replace(/--/g, '/')),
-      startTime: fileMtime || Date.now(),
-      lastActivity: Date.now(),
+      startTime: activityTime,
+      lastActivity: activityTime,
       agents: new Map(),
       events: [],
     });
   }
   const s = sessions.get(sessionId);
-  s.lastActivity = Date.now();
+  // Use actual file mtime so old sessions keep their real last-activity time
+  s.lastActivity = Math.max(s.lastActivity || 0, activityTime);
   return s;
 }
 
@@ -56,6 +77,7 @@ function serializeSession(session) {
   return {
     sessionId: session.sessionId,
     projectPath: session.projectPath,
+    title: sessionTitles.get(session.sessionId) || null,
     startTime: session.startTime,
     lastActivity: session.lastActivity || session.startTime,
     agents: Object.fromEntries(session.agents),
@@ -109,10 +131,10 @@ function readNewLines(filePath) {
   return parsed;
 }
 
-function processMainJsonl(filePath, entries) {
+function processMainJsonl(filePath, entries, fileMtime) {
   const info = sessionIdFromPath(filePath);
   if (!info) return;
-  const session = getOrCreateSession(info.sessionId, info.projectPath);
+  const session = getOrCreateSession(info.sessionId, info.projectPath, fileMtime);
 
   for (const entry of entries) {
     // Detect Agent spawn: assistant message with Agent tool_use
@@ -188,11 +210,11 @@ function processMainJsonl(filePath, entries) {
   }
 }
 
-function processSubagentJsonl(filePath, entries) {
+function processSubagentJsonl(filePath, entries, fileMtime) {
   const info = sessionIdFromPath(filePath);
   const agentFileId = agentIdFromPath(filePath);
   if (!info || !agentFileId) return;
-  const session = getOrCreateSession(info.sessionId, info.projectPath);
+  const session = getOrCreateSession(info.sessionId, info.projectPath, fileMtime);
 
   for (const entry of entries) {
     // Tool uses by subagent
@@ -365,19 +387,28 @@ function startWatcher() {
 
     if (!norm.endsWith('.jsonl')) return;
 
+    let fileMtime = Date.now();
+    try { fileMtime = fs.statSync(filePath).mtimeMs; } catch (_) {}
+
     const entries = readNewLines(filePath);
     if (entries.length === 0) return;
 
     if (norm.includes('/subagents/')) {
-      processSubagentJsonl(filePath, entries);
+      processSubagentJsonl(filePath, entries, fileMtime);
     } else {
-      processMainJsonl(filePath, entries);
+      processMainJsonl(filePath, entries, fileMtime);
     }
   }
 
   watcher.on('add', handleFile);
   watcher.on('change', handleFile);
   watcher.on('unlink', (filePath) => fileOffsets.delete(filePath));
+
+  // Watch history.jsonl for new /rename entries
+  try {
+    const historyWatcher = chokidar.watch(HISTORY_PATH, { persistent: true, ignoreInitial: true });
+    historyWatcher.on('change', () => loadSessionTitles());
+  } catch (_) {}
 
   console.log(`[visual-team] Watching ${PROJECTS_DIR}`);
 }

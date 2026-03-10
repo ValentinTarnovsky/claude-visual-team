@@ -475,33 +475,37 @@
     return events[events.length - 1].timestamp || session.startTime || 0;
   }
 
+  const ACTIVE_WINDOW_MS = 8 * 60 * 60 * 1000; // 8 hours
+
   function updateSessionSelect() {
     const ids = Object.keys(state);
     const prev = sessionSelect.value;
     sessionSelect.innerHTML = '';
 
-    // Filter: only show sessions with events, plus always show the most recent
-    const withEvents = ids.filter(id => (state[id].events || []).length > 0);
-    const withoutEvents = ids.filter(id => (state[id].events || []).length === 0);
+    const now = Date.now();
+
+    // Only show sessions active within the last 8 hours
+    const active = ids.filter(id => {
+      const last = getLastActivity(state[id]);
+      return (now - last) < ACTIVE_WINDOW_MS;
+    });
 
     // Sort by last activity (most recent first)
-    withEvents.sort((a, b) => getLastActivity(state[b]) - getLastActivity(state[a]));
-    withoutEvents.sort((a, b) => (state[b].startTime || 0) - (state[a].startTime || 0));
+    active.sort((a, b) => getLastActivity(state[b]) - getLastActivity(state[a]));
 
-    // Show active sessions first, then up to 5 recent empty ones
-    const visible = [...withEvents, ...withoutEvents.slice(0, 5)];
-
-    if (visible.length === 0) {
-      sessionSelect.innerHTML = '<option value="">No sessions</option>';
+    if (active.length === 0) {
+      sessionSelect.innerHTML = '<option value="">No active sessions</option>';
       currentSessionId = null;
       return;
     }
 
-    visible.forEach((id) => {
+    active.forEach((id) => {
       const s = state[id];
       const evtCount = (s.events || []).length;
       const proj = (s.projectPath || id).split(/[/\\]/).pop();
-      const label = proj + ' — ' + id.slice(0, 8) + (evtCount > 0 ? ' (' + evtCount + ')' : '');
+      // Prefer the custom rename title, fall back to project+id
+      const name = s.title || (proj + ' — ' + id.slice(0, 8));
+      const label = name + (evtCount > 0 ? ' (' + evtCount + ')' : '');
       const opt = document.createElement('option');
       opt.value = id;
       opt.textContent = label;
@@ -787,11 +791,11 @@
         }
       }
 
-      // Auto-select new session
+      // Auto-select new session (always active since it just had an event)
       if (!currentSessionId || isNew) {
         currentSessionId = data.sessionId;
-        updateSessionSelect();
       }
+      updateSessionSelect();
 
       // Only render affected panels
       if (graphChanged && data.sessionId === currentSessionId) renderGraph();

@@ -1,0 +1,17 @@
+{
+  "description": "Claude Visual Team dashboard hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/start-server.cjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

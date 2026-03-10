@@ -1,0 +1,14 @@
+{
+  "name": "claude-visual-team",
+  "version": "1.0.0",
+  "description": "Real-time visualization dashboard for Claude Code Agent Teams",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/server.cjs",
+    "dev": "node scripts/server.cjs"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "ws": "^8.16.0"
+  }
+}

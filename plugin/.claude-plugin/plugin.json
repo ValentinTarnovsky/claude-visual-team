@@ -1,0 +1,16 @@
+{
+  "name": "claude-visual-team",
+  "version": "1.0.0",
+  "description": "Real-time visualization dashboard for Claude Code Agent Teams — view orchestrator and subagent interactions on localhost:4800",
+  "author": {
+    "name": "Valentin Tarnovsky"
+  },
+  "license": "MIT",
+  "keywords": [
+    "visualization",
+    "agent-teams",
+    "dashboard",
+    "real-time",
+    "monitoring"
+  ]
+}

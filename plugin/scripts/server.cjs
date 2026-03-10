@@ -30,17 +30,20 @@ function sessionIdFromPath(filePath) {
   return null;
 }
 
-function getOrCreateSession(sessionId, projectPath) {
+function getOrCreateSession(sessionId, projectPath, fileMtime) {
   if (!sessions.has(sessionId)) {
     sessions.set(sessionId, {
       sessionId,
       projectPath: decodeURIComponent(projectPath.replace(/--/g, '/')),
-      startTime: Date.now(),
+      startTime: fileMtime || Date.now(),
+      lastActivity: Date.now(),
       agents: new Map(),
       events: [],
     });
   }
-  return sessions.get(sessionId);
+  const s = sessions.get(sessionId);
+  s.lastActivity = Date.now();
+  return s;
 }
 
 function agentIdFromPath(filePath) {
@@ -54,6 +57,7 @@ function serializeSession(session) {
     sessionId: session.sessionId,
     projectPath: session.projectPath,
     startTime: session.startTime,
+    lastActivity: session.lastActivity || session.startTime,
     agents: Object.fromEntries(session.agents),
     events: session.events.slice(-500),
   };
@@ -297,6 +301,19 @@ const server = http.createServer((req, res) => {
   if (req.url === '/api/state') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getFullState()));
+    return;
+  }
+
+  if (req.url === '/favicon.png') {
+    const faviconPath = path.join(__dirname, '..', 'ui', 'favicon.png');
+    try {
+      const img = fs.readFileSync(faviconPath);
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'max-age=86400' });
+      res.end(img);
+    } catch (_) {
+      res.writeHead(404);
+      res.end();
+    }
     return;
   }
 

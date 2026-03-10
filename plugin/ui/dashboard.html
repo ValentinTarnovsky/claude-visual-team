@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Claude Visual Team</title>
+<link rel="icon" type="image/png" href="/favicon.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
@@ -467,34 +468,52 @@
     render();
   });
 
+  function getLastActivity(session) {
+    if (session.lastActivity) return session.lastActivity;
+    const events = session.events || [];
+    if (events.length === 0) return session.startTime || 0;
+    return events[events.length - 1].timestamp || session.startTime || 0;
+  }
+
   function updateSessionSelect() {
     const ids = Object.keys(state);
     const prev = sessionSelect.value;
     sessionSelect.innerHTML = '';
 
-    if (ids.length === 0) {
+    // Filter: only show sessions with events, plus always show the most recent
+    const withEvents = ids.filter(id => (state[id].events || []).length > 0);
+    const withoutEvents = ids.filter(id => (state[id].events || []).length === 0);
+
+    // Sort by last activity (most recent first)
+    withEvents.sort((a, b) => getLastActivity(state[b]) - getLastActivity(state[a]));
+    withoutEvents.sort((a, b) => (state[b].startTime || 0) - (state[a].startTime || 0));
+
+    // Show active sessions first, then up to 5 recent empty ones
+    const visible = [...withEvents, ...withoutEvents.slice(0, 5)];
+
+    if (visible.length === 0) {
       sessionSelect.innerHTML = '<option value="">No sessions</option>';
       currentSessionId = null;
       return;
     }
 
-    ids.sort((a, b) => (state[b].startTime || 0) - (state[a].startTime || 0));
-
-    ids.forEach((id) => {
+    visible.forEach((id) => {
       const s = state[id];
-      const label = (s.projectPath || id).split('/').pop() + ' — ' + id.slice(0, 8);
+      const evtCount = (s.events || []).length;
+      const proj = (s.projectPath || id).split(/[/\\]/).pop();
+      const label = proj + ' — ' + id.slice(0, 8) + (evtCount > 0 ? ' (' + evtCount + ')' : '');
       const opt = document.createElement('option');
       opt.value = id;
       opt.textContent = label;
       sessionSelect.appendChild(opt);
     });
 
-    if (prev && ids.includes(prev)) {
+    if (prev && visible.includes(prev)) {
       sessionSelect.value = prev;
       currentSessionId = prev;
     } else {
-      sessionSelect.value = ids[0];
-      currentSessionId = ids[0];
+      sessionSelect.value = visible[0];
+      currentSessionId = visible[0];
     }
   }
 

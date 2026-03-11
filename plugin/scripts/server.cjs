@@ -141,7 +141,7 @@ function processMainJsonl(filePath, entries, fileMtime) {
 
   for (const entry of entries) {
     // Detect Agent spawn: assistant message with Agent tool_use
-    if (entry.type === 'assistant' && Array.isArray(entry.message?.content)) {
+    if (entry.message?.role === 'assistant' && Array.isArray(entry.message?.content)) {
       for (const block of entry.message.content) {
         if (block.type === 'tool_use' && block.name === 'Agent') {
           const input = block.input || {};
@@ -221,7 +221,7 @@ function processSubagentJsonl(filePath, entries, fileMtime) {
 
   for (const entry of entries) {
     // Tool uses by subagent
-    if (entry.type === 'assistant' && Array.isArray(entry.message?.content)) {
+    if (entry.message?.role === 'assistant' && Array.isArray(entry.message?.content)) {
       for (const block of entry.message.content) {
         if (block.type === 'tool_use') {
           // Find which session agent this subagent file belongs to

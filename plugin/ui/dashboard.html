@@ -89,14 +89,14 @@
 
   /* ── Agent Graph Panel ── */
   .graph-panel {
-    width: 35%;
-    min-width: 280px;
-    border-right: 1px solid var(--border);
+    flex: 1.6;
+    min-width: 320px;
     padding: 16px;
-    overflow-y: auto;
+    overflow: auto;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    position: relative;
   }
   .panel-title {
     font-size: 11px;
@@ -114,6 +114,38 @@
     flex-direction: column;
     align-items: center;
     gap: 0;
+    padding: 20px 12px;
+  }
+
+  .graph-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .graph-orchestrator {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 48px;
+  }
+
+  .graph-children {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .graph-child-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .agent-node {
@@ -122,13 +154,21 @@
     border-radius: var(--radius);
     padding: 10px 14px;
     min-width: 140px;
+    max-width: 220px;
     text-align: center;
     position: relative;
     transition: all 0.2s ease;
     box-shadow: var(--shadow);
+    z-index: 1;
+    cursor: pointer;
   }
   .agent-node:hover { border-color: var(--border-light); transform: translateY(-1px); }
   .agent-node.running { animation: glow 2s ease-in-out infinite; }
+  .agent-node.selected {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    animation: none;
+  }
   .agent-node .agent-type {
     font-size: 11px;
     font-weight: 600;
@@ -142,7 +182,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 160px;
+    max-width: 190px;
   }
   .agent-node .agent-status {
     font-size: 10px;
@@ -172,34 +212,6 @@
   .type-code, .type-general-purpose { border-color: var(--warning); }
   .type-code .agent-type, .type-general-purpose .agent-type { color: var(--warning); }
 
-  .agent-children {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    justify-content: center;
-    position: relative;
-    padding-top: 24px;
-  }
-  .agent-children::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: 1px;
-    height: 24px;
-    background: var(--border);
-  }
-
-  .connector-line {
-    position: absolute;
-    top: -1px;
-    width: 2px;
-    height: 25px;
-    background: var(--border);
-    left: 50%;
-    transform: translateX(-50%);
-  }
-
   .no-agents {
     display: flex;
     flex-direction: column;
@@ -212,21 +224,138 @@
   }
   .no-agents .icon { font-size: 32px; opacity: 0.5; }
 
+  /* ── Resizer ── */
+  .resizer {
+    width: 6px;
+    cursor: col-resize;
+    background: transparent;
+    position: relative;
+    flex-shrink: 0;
+    z-index: 10;
+    transition: background 0.15s;
+  }
+  .resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 2px;
+    width: 2px;
+    background: var(--border);
+    transition: background 0.15s;
+  }
+  .resizer:hover::after,
+  .resizer.active::after {
+    background: var(--accent);
+  }
+  .resizer:hover,
+  .resizer.active {
+    background: rgba(88,166,255,0.06);
+  }
+
   /* ── Activity Feed ── */
   .feed-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 250px;
+    transition: min-width 0.25s, max-width 0.25s, flex 0.25s;
   }
+  .feed-panel.collapsed {
+    min-width: 40px;
+    max-width: 40px;
+    flex: 0 0 40px;
+  }
+  .feed-panel.collapsed .feed-list,
+  .feed-panel.collapsed .feed-filter-bar,
+  .feed-panel.collapsed .feed-header-content {
+    display: none;
+  }
+  .feed-panel.collapsed .feed-header {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    padding: 12px 6px;
+    height: 100%;
+    justify-content: flex-start;
+    gap: 16px;
+    border-bottom: none;
+    border-left: 1px solid var(--border);
+  }
+  .feed-panel.collapsed .feed-toggle {
+    writing-mode: horizontal-tb;
+  }
+
   .feed-header {
-    padding: 12px 16px;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .feed-header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
     justify-content: space-between;
+  }
+  .feed-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
     flex-shrink: 0;
   }
+  .feed-toggle:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    background: rgba(88,166,255,0.08);
+  }
+
+  /* ── Feed Filter Bar ── */
+  .feed-filter-bar {
+    padding: 6px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(88,166,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .feed-filter-bar .filter-label {
+    color: var(--accent);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .feed-filter-bar .filter-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 4px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .feed-filter-bar .filter-close:hover {
+    color: var(--text);
+  }
+
   .feed-list {
     flex: 1;
     overflow-y: auto;
@@ -350,6 +479,15 @@
     gap: 8px;
     padding: 40px;
   }
+
+  /* ── No-select during resize ── */
+  body.resizing {
+    user-select: none;
+    cursor: col-resize !important;
+  }
+  body.resizing * {
+    cursor: col-resize !important;
+  }
 </style>
 </head>
 <body>
@@ -366,9 +504,9 @@
 </div>
 
 <!-- Main -->
-<div class="main">
+<div class="main" id="mainLayout">
   <!-- Agent Graph -->
-  <div class="graph-panel">
+  <div class="graph-panel" id="graphPanel">
     <div class="panel-title">Agent Graph</div>
     <div class="graph-container" id="agentGraph">
       <div class="no-agents">
@@ -379,11 +517,21 @@
     </div>
   </div>
 
+  <!-- Resizer -->
+  <div class="resizer" id="resizer"></div>
+
   <!-- Activity Feed -->
-  <div class="feed-panel">
+  <div class="feed-panel" id="feedPanel">
     <div class="feed-header">
-      <div class="panel-title" style="margin:0">Activity Feed</div>
-      <div style="font-size:11px;color:var(--text-muted)" id="eventCount">0 events</div>
+      <button class="feed-toggle" id="feedToggle" title="Collapse Activity Feed">&raquo;</button>
+      <div class="feed-header-content">
+        <div class="panel-title" style="margin:0">Activity Feed</div>
+        <div style="font-size:11px;color:var(--text-muted)" id="eventCount">0 events</div>
+      </div>
+    </div>
+    <div class="feed-filter-bar" id="feedFilterBar" style="display:none">
+      <span class="filter-label" id="feedFilterLabel"></span>
+      <button class="filter-close" id="feedFilterClose" title="Clear filter">&times;</button>
     </div>
     <div class="feed-list" id="feedList">
       <div class="empty-feed">
@@ -423,6 +571,8 @@
   let ws = null;
   let reconnectDelay = 1000;
   let statsCache = { agents: 0, tools: 0, events: 0, earliest: Infinity };
+  let feedFilterAgentId = null;
+  let feedCollapsed = false;
 
   // ── Elements ──
   const sessionSelect = document.getElementById('sessionSelect');
@@ -432,6 +582,95 @@
   const timelineTrack = document.getElementById('timelineTrack');
   const statusDot = document.getElementById('statusDot');
   const wsStatus = document.getElementById('wsStatus');
+  const graphPanel = document.getElementById('graphPanel');
+  const feedPanel = document.getElementById('feedPanel');
+  const resizer = document.getElementById('resizer');
+  const feedToggle = document.getElementById('feedToggle');
+  const feedFilterBar = document.getElementById('feedFilterBar');
+  const feedFilterLabel = document.getElementById('feedFilterLabel');
+  const feedFilterClose = document.getElementById('feedFilterClose');
+  const mainLayout = document.getElementById('mainLayout');
+
+  // ── Resizer Drag Logic ──
+  let isResizing = false;
+
+  resizer.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    resizer.classList.add('active');
+    document.body.classList.add('resizing');
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    const mainRect = mainLayout.getBoundingClientRect();
+    const offset = e.clientX - mainRect.left;
+    const pct = (offset / mainRect.width) * 100;
+    const clamped = Math.max(20, Math.min(85, pct));
+
+    graphPanel.style.flex = 'none';
+    graphPanel.style.width = clamped + '%';
+    feedPanel.style.flex = '1';
+
+    requestAnimationFrame(drawGraphLines);
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false;
+      resizer.classList.remove('active');
+      document.body.classList.remove('resizing');
+    }
+  });
+
+  // ── Feed Collapse / Expand ──
+  feedToggle.addEventListener('click', () => {
+    feedCollapsed = !feedCollapsed;
+    feedPanel.classList.toggle('collapsed', feedCollapsed);
+    feedToggle.innerHTML = feedCollapsed ? '&laquo;' : '&raquo;';
+    feedToggle.title = feedCollapsed ? 'Expand Activity Feed' : 'Collapse Activity Feed';
+    if (!feedCollapsed) {
+      feedPanel.style.flex = '1';
+      feedPanel.style.maxWidth = '';
+      feedPanel.style.minWidth = '';
+    }
+    requestAnimationFrame(drawGraphLines);
+  });
+
+  // ── Feed Agent Filter ──
+  feedFilterClose.addEventListener('click', clearFeedFilter);
+
+  function clearFeedFilter() {
+    feedFilterAgentId = null;
+    feedFilterBar.style.display = 'none';
+    document.querySelectorAll('.agent-node.selected').forEach(n => n.classList.remove('selected'));
+    renderFeed();
+  }
+
+  function setFeedFilter(agentId, agentLabel) {
+    if (feedFilterAgentId === agentId) {
+      clearFeedFilter();
+      return;
+    }
+    feedFilterAgentId = agentId;
+    feedFilterLabel.textContent = 'Filtering: ' + agentLabel;
+    feedFilterBar.style.display = 'flex';
+    // Expand feed if collapsed
+    if (feedCollapsed) {
+      feedCollapsed = false;
+      feedPanel.classList.remove('collapsed');
+      feedToggle.innerHTML = '&raquo;';
+      feedToggle.title = 'Collapse Activity Feed';
+      feedPanel.style.flex = '1';
+      feedPanel.style.maxWidth = '';
+      feedPanel.style.minWidth = '';
+    }
+    // Update selected visual
+    document.querySelectorAll('.agent-node.selected').forEach(n => n.classList.remove('selected'));
+    const node = document.querySelector(`.agent-node[data-agent-id="${CSS.escape(agentId)}"]`);
+    if (node) node.classList.add('selected');
+    renderFeed();
+  }
 
   // ── Helpers ──
   function formatTime(ts) {
@@ -465,6 +704,7 @@
   // ── Session Select ──
   sessionSelect.addEventListener('change', () => {
     currentSessionId = sessionSelect.value || null;
+    clearFeedFilter();
     render();
   });
 
@@ -475,9 +715,8 @@
     return events[events.length - 1].timestamp || session.startTime || 0;
   }
 
-  const ACTIVE_WINDOW_MS = 1 * 60 * 60 * 1000; // 1 hour
+  const ACTIVE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-  // Background/observer projects to hide from the session list
   const BG_PATTERNS = ['claude-mem-observer'];
 
   function isBackgroundSession(id) {
@@ -492,13 +731,11 @@
 
     const now = Date.now();
 
-    // Only show user sessions active within the last 1 hour
     const active = ids.filter(id => {
       const last = getLastActivity(state[id]);
       return (now - last) < ACTIVE_WINDOW_MS && !isBackgroundSession(id);
     });
 
-    // Sort by last activity (most recent first)
     active.sort((a, b) => getLastActivity(state[b]) - getLastActivity(state[a]));
 
     if (active.length === 0) {
@@ -511,8 +748,7 @@
       const s = state[id];
       const evtCount = (s.events || []).length;
       const proj = (s.projectPath || id).split(/[/\\]/).pop();
-      // Prefer the custom rename title, fall back to project+id
-      const name = s.title || (proj + ' — ' + id.slice(0, 8));
+      const name = s.title || (proj + ' \u2014 ' + id.slice(0, 8));
       const label = name + (evtCount > 0 ? ' (' + evtCount + ')' : '');
       const opt = document.createElement('option');
       opt.value = id;
@@ -529,81 +765,150 @@
     }
   }
 
+  // ── SVG Graph Lines ──
+  function drawGraphLines() {
+    const svg = document.getElementById('graphSvg');
+    if (!svg) return;
+
+    const containerRect = agentGraph.getBoundingClientRect();
+    const w = containerRect.width;
+    const h = containerRect.height;
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+
+    const orchEl = document.getElementById('graphOrch');
+    const children = document.querySelectorAll('.graph-child-wrapper');
+    if (!orchEl || children.length === 0) { svg.innerHTML = ''; return; }
+
+    const orchRect = orchEl.getBoundingClientRect();
+    const ox = orchRect.left + orchRect.width / 2 - containerRect.left;
+    const oy = orchRect.bottom - containerRect.top;
+
+    let paths = '';
+    const r = 10;
+
+    children.forEach(child => {
+      const cr = child.getBoundingClientRect();
+      const cx = cr.left + cr.width / 2 - containerRect.left;
+      const cy = cr.top - containerRect.top;
+      const midY = oy + (cy - oy) / 2;
+
+      if (Math.abs(cx - ox) < 3) {
+        // Straight vertical
+        paths += '<line x1="' + ox + '" y1="' + oy + '" x2="' + cx + '" y2="' + cy + '" stroke="var(--border-light)" stroke-width="2" stroke-opacity="0.6"/>';
+      } else {
+        // Stepped path with rounded corners
+        const dx = Math.min(r, Math.abs(cx - ox) / 2);
+        const dy = Math.min(r, (cy - oy) / 4);
+        const dir = cx > ox ? 1 : -1;
+
+        paths += '<path d="M ' + ox + ' ' + oy
+          + ' L ' + ox + ' ' + (midY - dy)
+          + ' Q ' + ox + ' ' + midY + ' ' + (ox + dir * dx) + ' ' + midY
+          + ' L ' + (cx - dir * dx) + ' ' + midY
+          + ' Q ' + cx + ' ' + midY + ' ' + cx + ' ' + (midY + dy)
+          + ' L ' + cx + ' ' + cy
+          + '" fill="none" stroke="var(--border-light)" stroke-width="2" stroke-opacity="0.6"/>';
+      }
+    });
+
+    svg.innerHTML = paths;
+  }
+
+  // Redraw lines on window resize
+  window.addEventListener('resize', () => requestAnimationFrame(drawGraphLines));
+
   // ── Render Agent Graph ──
   function renderGraph() {
     const session = currentSessionId ? state[currentSessionId] : null;
     const agents = session ? Object.values(session.agents || {}) : [];
 
     if (agents.length === 0) {
-      agentGraph.innerHTML = `
-        <div class="no-agents">
-          <div class="icon">&#x2B21;</div>
-          <div>Waiting for agents...</div>
-          <div style="font-size:11px">Spawn agents in Claude Code to see them here</div>
-        </div>`;
+      agentGraph.innerHTML = '<div class="no-agents">'
+        + '<div class="icon">&#x2B21;</div>'
+        + '<div>Waiting for agents...</div>'
+        + '<div style="font-size:11px">Spawn agents in Claude Code to see them here</div>'
+        + '</div>';
       return;
     }
 
-    let html = '';
+    let html = '<svg class="graph-svg" id="graphSvg"></svg>';
 
-    // Orchestrator node
-    html += `<div class="agent-node type-orchestrator running">
-      <div class="agent-type">Orchestrator</div>
-      <div class="agent-desc">Main session</div>
-      <div class="agent-status">
-        <span class="dot" style="background:var(--accent)"></span> active
-      </div>
-    </div>`;
-
-    // Connector
-    if (agents.length > 0) {
-      html += '<div style="width:2px;height:20px;background:var(--border)"></div>';
-    }
+    // Orchestrator
+    html += '<div class="graph-orchestrator" id="graphOrch">'
+      + '<div class="agent-node type-orchestrator running" data-agent-id="orchestrator">'
+      + '<div class="agent-type">Orchestrator</div>'
+      + '<div class="agent-desc">Main session</div>'
+      + '<div class="agent-status"><span class="dot" style="background:var(--accent)"></span> active</div>'
+      + '</div></div>';
 
     // Children
-    html += '<div class="agent-children">';
+    html += '<div class="graph-children">';
     agents.forEach((agent) => {
       const typeClass = getTypeClass(agent.type);
       const isRunning = agent.status === 'running';
       const statusColor = isRunning ? getTypeColor(agent.type) : 'var(--success)';
       const statusText = isRunning ? 'running' : 'completed';
       const tools = (agent.toolCalls || []).length;
+      const selected = feedFilterAgentId === agent.id ? ' selected' : '';
+      const desc = agent.description || agent.prompt || '...';
+      const agentLabel = (agent.type || 'agent') + ': ' + desc.slice(0, 40);
 
-      html += `
-        <div style="display:flex;flex-direction:column;align-items:center">
-          <div class="connector-line"></div>
-          <div class="agent-node ${typeClass} ${isRunning ? 'running' : ''}">
-            <div class="agent-type">${escHtml(agent.type || 'agent')}</div>
-            <div class="agent-desc" title="${escHtml(agent.description || agent.prompt || '')}">${escHtml(agent.description || agent.prompt || '...')}</div>
-            <div class="agent-status">
-              <span class="dot" style="background:${statusColor}"></span>
-              ${statusText}${tools > 0 ? ' · ' + tools + ' tools' : ''}
-            </div>
-          </div>
-        </div>`;
+      html += '<div class="graph-child-wrapper">'
+        + '<div class="agent-node ' + typeClass + (isRunning ? ' running' : '') + selected
+        + '" data-agent-id="' + escHtml(agent.id) + '" data-agent-label="' + escHtml(agentLabel) + '">'
+        + '<div class="agent-type">' + escHtml(agent.type || 'agent') + '</div>'
+        + '<div class="agent-desc" title="' + escHtml(desc) + '">' + escHtml(desc) + '</div>'
+        + '<div class="agent-status"><span class="dot" style="background:' + statusColor + '"></span> '
+        + statusText + (tools > 0 ? ' &middot; ' + tools + ' tools' : '')
+        + '</div></div></div>';
     });
     html += '</div>';
 
     agentGraph.innerHTML = html;
+
+    // Attach click handlers
+    agentGraph.querySelectorAll('.agent-node[data-agent-id]').forEach(node => {
+      node.addEventListener('click', () => {
+        const id = node.dataset.agentId;
+        if (id === 'orchestrator') {
+          clearFeedFilter();
+          return;
+        }
+        setFeedFilter(id, node.dataset.agentLabel || id);
+      });
+    });
+
+    // Draw SVG lines after layout
+    requestAnimationFrame(drawGraphLines);
   }
 
   // ── Render Feed ──
   function renderFeed() {
     const session = currentSessionId ? state[currentSessionId] : null;
-    const events = session ? (session.events || []) : [];
+    const allEvents = session ? (session.events || []) : [];
+    let events = allEvents;
+
+    if (feedFilterAgentId) {
+      events = allEvents.filter(e => e.agentId === feedFilterAgentId);
+    }
 
     if (events.length === 0) {
-      feedList.innerHTML = `<div class="empty-feed">
-        <div>No activity yet</div>
-        <div style="font-size:11px">Events will appear here in real-time</div>
-      </div>`;
-      eventCount.textContent = '0 events';
+      const msg = feedFilterAgentId ? 'No events for this agent' : 'No activity yet';
+      const sub = feedFilterAgentId ? 'Try selecting a different agent' : 'Events will appear here in real-time';
+      feedList.innerHTML = '<div class="empty-feed"><div>' + msg + '</div>'
+        + '<div style="font-size:11px">' + sub + '</div></div>';
+      eventCount.textContent = feedFilterAgentId
+        ? '0/' + allEvents.length + ' events'
+        : '0 events';
       return;
     }
 
-    eventCount.textContent = events.length + ' events';
+    eventCount.textContent = feedFilterAgentId
+      ? events.length + '/' + allEvents.length + ' events'
+      : events.length + ' events';
 
-    // Only render last 200 events
     const visible = events.slice(-200);
     let html = '';
 
@@ -615,12 +920,12 @@
         case 'agent_spawn':
           label = 'Agent spawned';
           labelClass = 'label-spawn';
-          detail = `${evt.agentType || 'agent'}${evt.description ? ' — ' + evt.description : ''}`;
+          detail = (evt.agentType || 'agent') + (evt.description ? ' \u2014 ' + evt.description : '');
           break;
         case 'agent_complete':
           label = 'Agent completed';
           labelClass = 'label-complete';
-          detail = `${evt.agentType || 'agent'} (${formatDuration(evt.duration || 0)})`;
+          detail = (evt.agentType || 'agent') + ' (' + formatDuration(evt.duration || 0) + ')';
           break;
         case 'tool_call':
           label = evt.toolName || 'Tool';
@@ -643,13 +948,12 @@
           detail = JSON.stringify(evt).slice(0, 100);
       }
 
-      html += `<div class="feed-item ${evt.type}">
-        <span class="feed-time">${time}</span>
-        <div class="feed-content">
-          <span class="feed-label ${labelClass}">${escHtml(label)}</span>
-          <span class="feed-detail">${escHtml(detail)}</span>
-        </div>
-      </div>`;
+      html += '<div class="feed-item ' + evt.type + '">'
+        + '<span class="feed-time">' + time + '</span>'
+        + '<div class="feed-content">'
+        + '<span class="feed-label ' + labelClass + '">' + escHtml(label) + '</span>'
+        + '<span class="feed-detail">' + escHtml(detail) + '</span>'
+        + '</div></div>';
     });
 
     const wasScrolled = feedList.scrollTop >= feedList.scrollHeight - feedList.clientHeight - 50;
@@ -662,7 +966,6 @@
     const session = currentSessionId ? state[currentSessionId] : null;
     const events = session ? (session.events || []) : [];
 
-    // Keep the bar
     let html = '<div class="timeline-bar"></div>';
 
     if (events.length < 2) {
@@ -674,12 +977,11 @@
     const maxT = events[events.length - 1].timestamp;
     const range = maxT - minT || 1;
 
-    // Show max 80 markers
     const step = Math.max(1, Math.floor(events.length / 80));
     for (let i = 0; i < events.length; i += step) {
       const evt = events[i];
-      const pct = 12 + ((evt.timestamp - minT) / range) * 76; // 12% to 88%
-      html += `<div class="timeline-marker ${evt.type}" style="left:${pct}%" title="${formatTime(evt.timestamp)} — ${evt.type}"></div>`;
+      const pct = 12 + ((evt.timestamp - minT) / range) * 76;
+      html += '<div class="timeline-marker ' + evt.type + '" style="left:' + pct + '%" title="' + formatTime(evt.timestamp) + ' \u2014 ' + evt.type + '"></div>';
     }
 
     timelineTrack.innerHTML = html;
@@ -768,11 +1070,9 @@
       const session = state[data.sessionId];
       session.events.push(data.event);
 
-      // Incremental stats update
       statsCache.events++;
       if (session.startTime < statsCache.earliest) statsCache.earliest = session.startTime;
 
-      // Update agent state from events
       const evt = data.event;
       let graphChanged = false;
       if (evt.type === 'agent_spawn') {
@@ -799,13 +1099,11 @@
         }
       }
 
-      // Auto-select new session (always active since it just had an event)
       if (!currentSessionId || isNew) {
         currentSessionId = data.sessionId;
       }
       updateSessionSelect();
 
-      // Only render affected panels
       if (graphChanged && data.sessionId === currentSessionId) renderGraph();
       if (data.sessionId === currentSessionId) {
         renderFeed();
@@ -818,7 +1116,6 @@
     if (data.type === 'meta_update' && data.sessionId && state[data.sessionId]) {
       const session = state[data.sessionId];
       if (data.meta && data.agentFileId) {
-        // Apply meta to matching agent
         for (const id of Object.keys(session.agents)) {
           const agent = session.agents[id];
           if (agent.subagentFileId === data.agentFileId || !agent.subagentFileId) {
@@ -836,7 +1133,6 @@
   // ── Init ──
   connect();
 
-  // Update duration stat every second
   setInterval(() => {
     renderStats();
   }, 1000);
